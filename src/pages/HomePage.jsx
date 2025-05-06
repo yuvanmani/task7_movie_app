@@ -4,27 +4,64 @@ import { MovieContext } from "../context/Moviecontext";
 
 const HomePage = () => {
   const [query, setQuery] = useState("");
-const {movie, setMovie} = useContext(MovieContext);
+  const { movie, setMovie, setSelectedMovie } = useContext(MovieContext);
+  const [page, setPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    setPage(1);
+    fetchMovies(query,1);
+  };
 
-    const url = `https://www.omdbapi.com/?apikey=2dd9dfd6&t=${encodeURIComponent(query)}`;
+  const fetchMovies = async (searchQuery = query, pageNum = page) => {
+    const url = `https://www.omdbapi.com/?apikey=2dd9dfd6&s=${searchQuery}&page=${pageNum}`;
 
     try {
       const response = await fetch(url);
       const data = await response.json();
 
       if (data.Response === "True") {
-        setMovie(data);
+        setMovie(data.Search);
+        setTotalResults(parseInt(data.totalResults));
       } else {
         alert(data.Error);
-        setMovie(null);
+        setMovie([]);
+        setTotalResults(0);
       }
     } catch (error) {
       alert("Error fetching movie:", error);
     }
   };
+
+  const totalPages = Math.ceil(totalResults / 10);
+
+  const goToNextPage = () => {
+    if (page < totalPages) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchMovies(query, nextPage);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (page > 1) {
+      const prevPage = page - 1;
+      setPage(prevPage);
+      fetchMovies(query, prevPage);
+    }
+  };
+
+const handleMovieSelect = async (imdbID) => {
+  const url = `https://www.omdbapi.com/?apikey=2dd9dfd6&i=${imdbID}`;
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (data.Response === "True") {
+    setSelectedMovie(data);
+  }
+};
+
 
   return (
     <div>
@@ -45,15 +82,25 @@ const {movie, setMovie} = useContext(MovieContext);
         </div>
       </form>
 
-      {movie && (
-        <div className="border w-4/6 ml-20 mt-10 mb-10 md:w-4/6 md:ml-28 lg:w-1/6">
-          <Link to="/moviePage">
-            <div>
-              <h2 className="text-xl font-extrabold text-gray-700 ml-12 text-center"><span className="text-red-500">Movie Name : </span> {movie.Title}</h2>
-              <p className="text-lg font-bold text-cyan-800 mt-1 mb-5 text-center">Year : {movie.Year}</p>
-              <img className="ml-0 bg-cover md:ml-24 lg:ml-0" src={movie.Poster} alt={movie.Title} />
-            </div>
-          </Link>
+      {movie && movie.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+          {movie.map((movieItem) => (
+            <Link key={movieItem.imdbID} to="/moviePage" onClick={() => handleMovieSelect(movieItem.imdbID)}>
+              <div className="border p-4 rounded-lg shadow-lg bg-white">
+                <h2 className="text-xl font-extrabold text-gray-700 text-center"><span className="text-red-500">Movie Name: </span>{movieItem.Title}</h2>
+                <p className="text-lg font-bold text-cyan-800 mt-1 mb-2 text-center">Year: {movieItem.Year}</p>
+                <img className="mx-auto bg-cover w-48 h-72 object-cover" src={movieItem.Poster} alt={movieItem.Title} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {movie && movie.length > 0 && (
+        <div className="flex justify-center items-center gap-4 mt-4">
+          <button onClick={goToPrevPage} disabled={page === 1} className="bg-gray-300 px-4 py-2 rounded-md">Previous</button>
+          <span className="font-bold text-lg">Page {page} of {totalPages}</span>
+          <button onClick={goToNextPage} disabled={page === totalPages} className="bg-gray-300 px-4 py-2 rounded-md">Next</button>
         </div>
       )}
     </div>
